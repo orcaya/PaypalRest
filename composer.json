@@ -29,7 +29,7 @@
   ],
   "require": {
     "payum/core": "^1.7.3",
-    "paypal/rest-api-sdk-php": "~1.14"
+    "paypal/rest-api-sdk-php": "dev-master"
   },
   "require-dev": {
     "symfony/phpunit-bridge": "^6.0",
@@ -43,5 +43,11 @@
   "target-dir": "Payum/Paypal/Rest",
   "config": {
     "bin-dir": "bin"
-  }
+  },
+  "repositories": [
+    {
+      "type": "git",
+      "url": "https://github.com/orcaya/PayPal-PHP-SDK.git"
+    }
+  ]
 }
