@@ -29,7 +29,7 @@
   ],
   "require": {
     "payum/core": "^1.7.3",
-    "paypal/rest-api-sdk-php": "dev-master"
+    "orcaya/rest-api-sdk-php": "dev-master"
   },
   "require-dev": {
     "symfony/phpunit-bridge": "^6.0",
