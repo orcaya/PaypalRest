@@ -26,7 +26,7 @@ class ConvertAction implements ActionInterface, GatewayAwareInterface
         $token = $request->getToken();
 
         $details = ArrayObject::ensureArrayObject($payment->getDetails());
-        $details['amount'] = $payment->getTotalAmount();
+        $details['amount'] = $payment->getTotalAmount() * 100; //Amount in cents
         $details['currency'] = $payment->getCurrencyCode();
         $details['number'] = $payment->getNumber();
         $details['description'] = $payment->getDescription();
