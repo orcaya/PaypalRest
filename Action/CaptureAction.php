@@ -132,20 +132,16 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
         $transaction = new Transaction();
         $transaction->setAmount($amount);
 
-        if (!isset($model['redirect_urls'])) {
-            $redirectUrls = new RedirectUrls();
-            $returnUrl = $this->tokenFactory->createCaptureToken(
-                $request->getToken()->getGatewayName(),
-                $request->getToken()->getDetails(),
-                $request->getToken()->getAfterUrl()
-            )->getTargetUrl();
+        $redirectUrls = new RedirectUrls();
+        $returnUrl = $this->tokenFactory->createCaptureToken(
+            $request->getToken()->getGatewayName(),
+            $request->getToken()->getDetails(),
+            $request->getToken()->getAfterUrl()
+        )->getTargetUrl();
 
-            $cancelUri = HttpUri::createFromString($returnUrl);
-            $redirectUrls->setReturnUrl($returnUrl)
-                ->setCancelUrl((string) UriModifier::mergeQuery($cancelUri, 'cancelled=1'));
-        } else {
-            $redirectUrls = $model['redirect_urls'];
-        }
+        $cancelUri = HttpUri::createFromString($returnUrl);
+        $redirectUrls->setReturnUrl($returnUrl)
+            ->setCancelUrl((string) UriModifier::mergeQuery($cancelUri, 'cancelled=1'));
 
         $payment = new PaypalPayment();
         $payment->setIntent('sale')
