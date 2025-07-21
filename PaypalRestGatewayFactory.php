@@ -10,6 +10,7 @@ use Payum\Core\Exception\InvalidArgumentException;
 use Payum\Core\GatewayFactory;
 use Payum\Paypal\Rest\Action\CaptureAction;
 use Payum\Paypal\Rest\Action\ConvertAction;
+use Payum\Paypal\Rest\Action\RefundAction;
 use Payum\Paypal\Rest\Action\StatusAction;
 use Payum\Paypal\Rest\Action\SyncAction;
 
@@ -29,6 +30,7 @@ class PaypalRestGatewayFactory extends GatewayFactory
             'payum.action.sync' => new SyncAction(),
             'payum.action.status' => new StatusAction(),
             'payum.action.convert_payment' => new ConvertAction(),
+            'payum.action.refund' => new RefundAction(),
         ]);
 
         if (! $config['payum.api']) {
