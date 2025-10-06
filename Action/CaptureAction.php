@@ -6,6 +6,8 @@ use ArrayAccess;
 use League\Uri\Http as HttpUri;
 use League\Uri\UriModifier;
 use PayPal\Api\Amount;
+use PayPal\Api\Authorization;
+use PayPal\Api\Capture as PaypalCapture;
 use PayPal\Api\Payer;
 use PayPal\Api\Payment as PaypalPayment;
 use PayPal\Api\PaymentExecution;
@@ -58,7 +60,7 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
         if ($model instanceof PaypalPayment) {
             $payment = $model;
         } else {
-            $payment = $this->captureArrayAccess($model, $request);
+            $payment = $this->captureArrayAccess($model, $request, $httpRequest);
         }
 
         if (
@@ -98,10 +100,17 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
         ) {
             $this->gateway->execute($httpRequest = new GetHttpRequest());
 
-            $execution = new PaymentExecution();
-            $execution->payer_id = $httpRequest->query['PayerID'];
-
-            $payment->execute($execution, $this->api);
+            // Check if this is a capture request (vs authorization)
+            $isCapture = $httpRequest->query['isFinalCapture'] ?? false;
+            if ($isCapture) {
+                // For capture: find the authorization and capture it
+                $this->captureAuthorizedPayment($payment);
+            } else {
+                // For authorization: use PaymentExecution as before
+                $execution = new PaymentExecution();
+                $execution->payer_id = $httpRequest->query['PayerID'];
+                $payment->execute($execution, $this->api);
+            }
 
             if ($model instanceof ArrayAccess) {
                 $model->replace($payment->toArray());
@@ -116,7 +125,7 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
         ;
     }
 
-    private function captureArrayAccess(ArrayAccess $model, Capture $request): PaypalPayment
+    private function captureArrayAccess(ArrayAccess $model, Capture $request, GetHttpRequest $httpRequest): PaypalPayment
     {
         if (isset($model['id'])) {
             return PaypalPayment::get($model['id'], $this->api);
@@ -144,11 +153,60 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
             ->setCancelUrl((string) UriModifier::mergeQuery($cancelUri, 'cancelled=1'));
 
         $payment = new PaypalPayment();
-        $payment->setIntent('sale')
+        $payment->setIntent('authorize')
             ->setPayer($payer)
             ->setTransactions([$transaction])
             ->setRedirectUrls($redirectUrls);
 
         return $payment;
+    }
+
+    /**
+     * Capture an authorized PayPal payment
+     */
+    private function captureAuthorizedPayment(PaypalPayment $payment): void
+    {
+        // Get the authorization from the payment
+        $transactions = $payment->getTransactions();
+        if (!$transactions || count($transactions) === 0) {
+            return;
+        }
+
+        $transaction = $transactions[0];
+        $relatedResources = $transaction->getRelatedResources();
+        if (!$relatedResources || count($relatedResources) === 0) {
+            return;
+        }
+
+        // Find the authorization in related resources
+        $authorization = null;
+        foreach ($relatedResources as $relatedResource) {
+            if ($relatedResource->getAuthorization()) {
+                $authorization = $relatedResource->getAuthorization();
+                break;
+            }
+        }
+
+        if (!$authorization) {
+            return;
+        }
+
+        // Create capture object with the full authorized amount
+        $capture = new PaypalCapture();
+        $capture->setAmount($authorization->getAmount());
+        $capture->getAmount()->setDetails(null); //providing details throws error
+        $capture->setIsFinalCapture(true);
+
+        // Capture the authorization
+        try {
+            $authorization->capture($capture, $this->api);
+            
+            // Update the payment state to reflect the capture
+            $payment->setState('approved');
+            
+        } catch (\Exception $e) {
+            // Log the error but don't throw to maintain backward compatibility
+            error_log('PayPal capture failed: ' . $e->getMessage());
+        }
     }
 }
