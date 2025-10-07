@@ -104,7 +104,8 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
             $isCapture = $httpRequest->query['isFinalCapture'] ?? false;
             if ($isCapture) {
                 // For capture: find the authorization and capture it
-                $this->captureAuthorizedPayment($payment);
+                $amount = $httpRequest->query['amount'] ?? null;
+                $this->captureAuthorizedPayment($payment, $amount);
             } else {
                 // For authorization: use PaymentExecution as before
                 $execution = new PaymentExecution();
@@ -164,7 +165,7 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
     /**
      * Capture an authorized PayPal payment
      */
-    private function captureAuthorizedPayment(PaypalPayment $payment): void
+    private function captureAuthorizedPayment(PaypalPayment $payment, ?float $amount): void
     {
         // Get the authorization from the payment
         $transactions = $payment->getTransactions();
@@ -191,7 +192,10 @@ class CaptureAction implements ActionInterface, GatewayAwareInterface, ApiAwareI
             return;
         }
 
-        // Create capture object with the full authorized amount
+        if ($amount) {
+            $authorization->getAmount()->setTotal($amount);
+        }        
+
         $capture = new PaypalCapture();
         $capture->setAmount($authorization->getAmount());
         $capture->getAmount()->setDetails(null); //providing details throws error
